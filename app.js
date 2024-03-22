@@ -9,40 +9,33 @@ const API_URL = 'https://api.spacexdata.com/v3/rockets'
 const app = express()
 app.use(responseTime())
 
-app.get('/rockets', async (req, res)=> {
+const handleRequestState = async (key, url)=> {
   try {
-    const cachedData = await client.get('rockets')
+    const cachedData = await client.get(key)
 
     if(cachedData) {
-      res.send(cachedData)
-      return
+      console.log(`Using cache data on key - ${key}`)
+      return cachedData
     }
 
-    const { data } = await axios.get(API_URL)
-    client.set('rockets', JSON.stringify(data))
-    res.send(data)
+    const { data } = await axios.get(url)
+    console.log(`Setting cache data for key - ${key}`)
+    client.set(key, JSON.stringify(data), "EX", 30)
+    return data
   } catch (error) {
     res.send(error.message)
   }
+}
+
+app.get('/rockets', async (req, res)=> {
+  const data = await handleRequestState('rockets', API_URL)
+  res.send(data)
 })
 
 app.get('/rockets/:rocket_id', async (req, res)=> {
   const { rocket_id } = req.params
-
-  try {
-    const cachedData = await client.get(rocket_id)
-
-    if(cachedData) {
-      res.send(cachedData)
-      return
-    }
-
-    const { data } = await axios.get(`${API_URL}/${rocket_id}`)
-    client.set(rocket_id, JSON.stringify(data))
-    res.send(data)
-  } catch (error) {
-    console.log(error.message)
-  }
+  const data = await handleRequestState(rocket_id, `${API_URL}/${rocket_id}`)
+  res.send(data)
 })
 
 app.listen(PORT, ()=> console.log(`🚀 Server running on port ${PORT}`))
